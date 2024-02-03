@@ -46,6 +46,18 @@ def test_natural_earth_custom():
     return ax.figure
 
 
+@pytest.mark.filterwarnings("ignore:Downloading")
+@pytest.mark.natural_earth
+@pytest.mark.mpl_image_compare(filename='ocean_lambertazimuthalequalarea.png')
+def test_ocean_lambertazimuthalequalarea():
+    proj = ccrs.LambertAzimuthalEqualArea(central_latitude=45, central_longitude=-100)
+    ax = plt.axes(projection=proj)
+    ax.add_feature(cfeature.OCEAN)
+    ax.coastlines()
+    ax.set_extent([-140, -70, 20, 60])
+    return ax.figure
+
+
 @pytest.mark.network
 @pytest.mark.skipif(not _HAS_PYKDTREE_OR_SCIPY, reason='pykdtree or scipy is required')
 @pytest.mark.mpl_image_compare(filename='gshhs_coastlines.png', tolerance=0.95)
