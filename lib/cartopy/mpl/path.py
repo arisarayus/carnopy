@@ -14,6 +14,7 @@ and `Matplotlib Path API <https://matplotlib.org/stable/api/path_api.html>`_.
 
 from matplotlib.path import Path
 import numpy as np
+from shapely import GEOSException
 import shapely.geometry as sgeom
 
 from cartopy.mpl import _MPL_38
@@ -192,14 +193,29 @@ def path_to_shapely(path):
             geom = sgeom.Polygon(path_verts[:-1, :])
             # If geom is a Polygon and is contained within the last geom in
             # polygon_bits, it usually needs to be an interior to that geom (e.g. a
-            # lake within a land mass).  Sometimes there is a further geom within
+            # lake within a land mass). Sometimes there is a further geom within
             # this interior (e.g. an island in a lake, or some instances of
-            # contours).  This needs to be a new external geom in polygon_bits.
-            if (len(polygon_bits) > 0 and polygon_bits[-1][0].contains(geom.exterior)):
-                if any(internal.contains(geom) for internal in polygon_bits[-1][1]):
-                    polygon_bits.append((geom, []))
+            # contours). This needs to be a new external geom in polygon_bits.
+            if len(polygon_bits) > 0:
+                try:
+                    is_inside = polygon_bits[-1][0].contains(geom.exterior)
+                except GEOSException:
+                    invalid_polygon = polygon_bits[-1][0]
+                    fixed_polygon = invalid_polygon.buffer(0)
+                    if isinstance(fixed_polygon, sgeom.MultiPolygon):
+                        area = invalid_polygon.area
+                        bfsize = area * 0.0001
+                        fixed_polygon = invalid_polygon.buffer(bfsize).buffer(-bfsize)
+
+                    polygon_bits[-1] = (fixed_polygon, polygon_bits[-1][1])
+                    is_inside = polygon_bits[-1][0].contains(geom.exterior)
+                if is_inside:
+                    if any(internal.contains(geom) for internal in polygon_bits[-1][1]):
+                        polygon_bits.append((geom, []))
+                    else:
+                        polygon_bits[-1][1].append(geom)
                 else:
-                    polygon_bits[-1][1].append(geom)
+                    polygon_bits.append((geom, []))
             else:
                 polygon_bits.append((geom, []))
 
